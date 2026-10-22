@@ -137,7 +137,7 @@ function render(){const Y=+$("y").value,mn=+$("mn").value,mr=+$("mr").value,L=+$
  $("ptab").innerHTML=tb;$("wlnote").textContent=Object.keys(WL).length?"危老核准件數：臺北市政府《危老核准重建計畫 臺北市案例》逐案表，統計至 115 年 2 月 28 日；每萬宅危老件 = 件數 ÷ 該區 2025 年住宅數 × 10,000。":"危老核准件數：尚未接上。"}
 const sel=$("geo");for(const k of["全市",...DIST]){const o=document.createElement("option");o.value=k;o.textContent=k;sel.appendChild(o)}
 for(const id of["y","mn","mr","layer","geo"])$(id).addEventListener("input",render);render();
-</script><div class="yjh-ver">v1.0.1　資料至 2026-10-21　更新 2026-10-22　<a href="https://github.com/yojuhsu/taipei-aging-2026/blob/main/CHANGELOG.md" target="_blank" rel="noopener">更新紀錄</a></div>
+</script><div class="yjh-ver">v1.0.2　資料至 2026-10-21　更新 2026-10-22　<a href="https://github.com/yojuhsu/taipei-aging-2026/blob/main/CHANGELOG.md" target="_blank" rel="noopener">更新紀錄</a></div>
 <script>
 (function(){
 var q=new URLSearchParams(location.search);var embed=q.get('embed')==='1';
