@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>危老屋有兩種：有的搶著都更，有的需要介入</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--ink:#1f1a17;--mute:#6b625c;--line:#d9d2c8;--bg:#faf7f2;--old:#8b2e1f;--mid:#d9a58a;--young:#efe6da;--sel:#1f4e79}
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{background:var(--bg);color:var(--ink);font:15px/1.6 "PingFang TC","Noto Sans TC",system-ui,sans-serif;display:flex;flex-direction:column}
+header{padding:8px 14px;border-bottom:1px solid var(--line);display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}header h1{font-size:18px;margin:0}header .s{color:var(--mute);font-size:13px}
+.main{flex:1;display:flex;min-height:0;position:relative}#map{flex:1;min-height:420px;background:#f1efe9}
+.leaflet-tile-pane{filter:grayscale(1) brightness(1.06) contrast(.92)}
+.lgbox{position:absolute;top:10px;left:52px;z-index:800;background:rgba(255,255,255,.93);border:1px solid var(--line);padding:6px 10px;font-size:12px;line-height:1.5;max-width:300px;display:flex;flex-wrap:wrap;gap:4px 10px}@media(max-width:760px){.lgbox{left:10px;top:auto;bottom:10px;max-width:calc(100% - 20px)}}
+aside{width:360px;max-width:100%;border-left:1px solid var(--line);padding:10px 14px;overflow:auto;font-size:14px;background:#fff}
+aside h3{font-size:14px;margin:12px 0 4px;color:var(--mute);font-weight:600}aside label{display:block;margin:2px 0;cursor:pointer}aside select{font:inherit;width:100%;padding:3px}
+.grid{display:grid;grid-template-columns:34px repeat(3,1fr);gap:3px;margin:6px 0}.grid div{font-size:11px;text-align:center;padding:4px 2px;color:var(--mute)}.grid .c{border:1px solid var(--line);cursor:pointer;font-weight:700;font-size:14px;color:var(--ink)}.grid .c.on{outline:2px solid var(--sel)}
+.lg{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--mute);margin:4px 0}.sw{display:inline-block;width:12px;height:12px;vertical-align:-1px;margin-right:3px;border:1px solid #c9bfb2}
+#info{border-top:1px solid var(--line);margin-top:8px;padding-top:8px}#info b.t{font-size:16px}#info .k{color:var(--mute);font-size:12px}#info table{border-collapse:collapse;width:100%;font-size:13px}#info td{padding:2px 4px;border-bottom:1px solid #eee}#info td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;min-width:20px;text-align:center;border-radius:3px;padding:0 4px;font-size:12px}.t1{background:var(--young)}.t2{background:var(--mid)}.t3{background:var(--old);color:#fff}
+.foot{font-size:11px;color:var(--mute);padding:6px 14px;border-top:1px solid var(--line)}
+.leaflet-container{font:inherit}.ltip{font-size:13px;line-height:1.4}
+@media(max-width:760px){.main{flex-direction:column}aside{width:100%;border-left:0;border-top:1px solid var(--line);max-height:45vh}}
+</style><style>.yjh-ver{position:fixed;right:8px;bottom:6px;z-index:900;font-size:11px;line-height:1.4;color:#6b625c;background:rgba(255,255,255,.9);padding:2px 8px;border-radius:3px}.yjh-ver a{color:inherit;text-decoration:underline}html.embed .yjh-ver{display:none}</style>
+</head><body>
+<header><h1>危老屋有兩種：有的搶著都更，有的需要介入</h1><span class="s">點一個里，看它的鄰；右欄換塗法。地圖上標里名與鄰號。</span></header>
+<div class="main"><div id="lg" class="lgbox"></div><div id="map"></div>
+<aside>
+<h3>里塗什麼</h3>
+<select id="metric">
+<option value="grid">風險：房子那一面 × 人那一面</option>
+<option value="apps">申請去了哪裡：危老加都更核准案數</option>
+<option value="gap">差集：房子高、分配後核准不到 0.5 件</option>
+<option value="inc">所得中位數（綜所稅，千元）</option>
+<option value="liq">高液化的鄰占該里鄰數</option>
+<option value="old">住老公寓的老人數</option>
+</select>
+
+<h3>九宮格（點一格只看那些里）</h3>
+<div class="grid" id="grid"></div>
+<h3>加一層點</h3>
+<label><input type="checkbox" id="ov_lanes"> 搶救不易狹小巷道（紅區、黃區，231 條定位到巷弄）</label>
+<label><input type="checkbox" id="ov_st"> 消防分隊駐地（47）</label>
+<label><input type="checkbox" id="ov_ma"> 最小統計區的 65 歲以上人數（圓越大越多）</label>
+<label><input type="checkbox" id="ov_lists"> 建管處列管（海砂屋、地震黃單、耐震未申報；路段巷弄層級的定位，不是門牌）</label>
+<div id="info"><span class="k">還沒選里。地圖上的顏色依右上的塗法；點一個里，這裡會列它的數字，地圖上會畫出它的鄰（紅越深，液化一級占該鄰面積越高）。</span></div>
+<h3>這張圖說的事</h3>
+<p style="font-size:13px;color:var(--mute);margin:4px 0">危老核准 1,056 件、都更核定 754 件按地籍小段分到里之後，房子那一面最高的 33 個里每里平均只分到危老 1.0 件、都更 0.8 件，另兩級是 2.4 與 1.5 到 1.9 件（這 33 個里占全市核准的 3.2% 與 3.6%）；民辦的核准案跟著動機走，本來就會，它量到的是市場去了哪裡；公辦都更該去市場不去、風險卻高的里。核准少的原因資料分不開（市場、產權、基地、容積）。「差集」那個塗法是房子那一面高、分配後幾乎沒有核准案的里，公辦都更該先看的地方；件數是按比例分到里的量，不是逐案。鄰層：液化一級占鄰面積過半的鄰 1,762 個，大同、中山、士林、萬華、松山最多。</p>
+</aside></div>
+<div class="foot">資料：內政部統計處銀髮安居指數（村里級，113 年）與統計區五歲年齡組人口（最小統計區，113 年 12 月）、臺北市土壤液化潛勢圖、民政局鄰界圖、地政局數值地籍地段圖、都發局危老核准案例與都市更新核定案件一覽表、內政部實價登錄、財政部綜所稅村里統計（112 年度）、消防局搶救不易狹小巷道清冊（OpenStreetMap 定位）與各分隊駐地、北水處消防栓。依政府資料開放授權條款第 1 版；底圖 © OpenStreetMap 貢獻者；Leaflet。</div>
+<script>
+const PUB=true;const $=id=>document.getElementById(id);
+const map=L.map('map',{preferCanvas:true}).setView([25.06,121.55],12);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap 貢獻者',maxZoom:19,opacity:0.75}).addTo(map);
+const T=t=>t===3?'高':t===2?'中':'低';const colT=t=>t===3?'#8b2e1f':t===2?'#d9a58a':'#efe6da';
+const colG=(b,p)=>b===3&&p===3?'#8b2e1f':(b+p===5)?'#b5533a':(b+p===4)?'#d9a58a':(b+p===3)?'#ecd4c3':'#efe6da';
+const ramp=t=>{t=Math.max(0,Math.min(1,t));return `rgb(${Math.round(239-(239-139)*t)},${Math.round(230-(230-46)*t)},${Math.round(218-(218-31)*t)})`};
+let LI=null,LIN=null,PTS=null,liLayer=null,linLayer=null,sel=null,cell=null,ov={};
+const metric=()=>$('metric').value;
+function maxOf(k){return Math.max(...LI.features.map(f=>f.properties[k]||0))}
+function fillOf(p){const m=metric();
+ if(cell&&!(p.B===cell[0]&&p.P===cell[1]))return '#f3efe8';
+ if(m==='grid')return colG(p.B,p.P);
+ if(m==='apps')return ramp((p.apps+p.ur)/maxOf('apps')*0.6);
+ if(m==='gap')return p.gapAll?'#8b2e1f':p.gapB?'#b5533a':p.B===3?'#d9a58a':'#efe6da';
+ if(m==='inc'){if(p.inc==null)return '#eee';const lo=450,hi=1200;return ramp(1-(p.inc-lo)/(hi-lo))}
+ if(m==='liq')return p.nlin?ramp(p.liq1/p.nlin):'#eee';
+ if(m==='old')return ramp(p.old/maxOf('old'));
+ return '#eee'}
+function legend(){const m=metric();const sw=(c,t)=>`<span><i class="sw" style="background:${c}"></i>${t}</span>`;
+ $('lg').innerHTML=m==='grid'?sw('#8b2e1f','兩面都高')+sw('#b5533a','一高一中')+sw('#d9a58a','兩中或一高一低')+sw('#ecd4c3','一中一低')+sw('#efe6da','兩低'):
+ m==='apps'?sw('#efe6da','0 件')+sw('#8b2e1f','多（危老加都更）'):
+ m==='gap'?sw('#8b2e1f','房子高、危老與都更分配後都不到 0.5 件')+sw('#b5533a','房子高、危老分配後不到 0.5 件')+sw('#d9a58a','房子高、有核准案')+sw('#efe6da','其他'):
+ m==='inc'?sw('#8b2e1f','低（450 千元以下）')+sw('#efe6da','高（1,200 千元以上）')+sw('#eee','無資料'):
+ m==='liq'?sw('#efe6da','0')+sw('#8b2e1f','全部的鄰都高液化'):sw('#efe6da','少')+sw('#8b2e1f','多')}
+function tip(p){const nm=`${p.dist} ${p.li}`;return `<div class="ltip"><b>${nm}</b><br>房子 ${T(p.B)}・人 ${T(p.P)}${p.pri?'・<b>查證優先</b>':''}<br>老公寓老人 ${p.old.toLocaleString()}；危老 ${p.apps} 件、都更 ${p.ur} 件<br>高液化鄰 ${p.liq1}/${p.nlin}、紅區窄巷 ${p.red}、消防栓 ${p.hyd}</div>`}
+function pill(t){return `<span class="pill t${t}">${T(t)}</span>`}
+function showInfo(p){const nm=`${p.dist} ${p.li}`;const rows=[
+ ['房子那一面 / 人那一面',`${pill(p.B)} ${pill(p.P)}${p.pri?' 查證優先':''}`],['65 歲以上',p.pop65.toLocaleString()],['住 30 年以上無電梯公寓的老人',`${p.old.toLocaleString()}（${Math.round(p.oldsh*100)}%）`],['獨居老人占比',`${Math.round(p.alone*100)}%`],
+ ['危老核准 / 都更核定（分到里）',`${p.apps} / ${p.ur} 件`],['差集',p.gapAll?'房子高、危老與都更分配後都不到 0.5 件':p.gapB?'房子高、危老分配後不到 0.5 件':'—'],
+ ['成交 50 年以上占比（實價登錄）',p.old50==null?'—':`${Math.round(p.old50*100)}%`],['成交單價中位',p.price==null?'—':`${p.price} 萬/坪`],['綜合所得中位（112 年）',p.inc==null?'—':`${p.inc.toLocaleString()} 千元`],
+ ['鄰數 / 高液化的鄰',`${p.nlin} / ${p.liq1}`],['紅區 / 黃區窄巷',`${p.red} / ${p.yel}`],['消防栓',p.hyd.toLocaleString()],['海砂屋 / 地震黃單 / 耐震未申報（定位到里）',`${p.seasand} / ${p.quake} / ${p.unrep}`]];
+ $('info').innerHTML=`<b class="t">${nm}</b><table>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table><div class="k" style="margin-top:6px">地圖上這個里的鄰：紅越深，液化一級占該鄰面積越高；有紅邊的鄰有紅區窄巷。</div>`}
+async function selectLi(f,layer){sel=f.properties.id;liLayer.setStyle(styleLi);map.fitBounds(layer.getBounds(),{padding:[20,20]});showInfo(f.properties);
+ if(!LIN)LIN=await (await fetch('lin.json')).json();if(linLayer)map.removeLayer(linLayer);
+ const fc={type:'FeatureCollection',features:LIN[sel]||[]};
+ linLayer=L.geoJSON(fc,{style:x=>({color:x.properties.red?'#c0392b':'#555',weight:x.properties.red?2:0.8,fillColor:ramp(x.properties.liq1),fillOpacity:0.75}),
+  onEachFeature:(x,l)=>l.bindTooltip(`<div class="ltip"><b>${x.properties.dist} ${x.properties.li} ${x.properties.n} 鄰</b><br>液化一級 ${Math.round(x.properties.liq1*100)}%、二級 ${Math.round(x.properties.liq2*100)}%<br>紅區窄巷 ${x.properties.red}、黃區 ${x.properties.yel}、消防栓 ${x.properties.hyd}${x.properties.km!=null?'、離分隊 '+x.properties.km+' 公里':''}</div>`,{sticky:true})}).addTo(map)}
+function styleLi(f){const p=f.properties;return {color:sel===p.id?'#1f4e79':'#fff',weight:sel===p.id?3:0.7,fillColor:fillOf(p),fillOpacity:sel&&sel!==p.id&&linLayer?0.35:0.8}}
+function renderGrid(){let g='<div></div><div>人高</div><div>中</div><div>低</div>';
+ for(const b of[3,2,1]){g+=`<div>房${T(b)}</div>`;for(const p of[3,2,1]){const n=LI.features.filter(f=>f.properties.B===b&&f.properties.P===p).length;const on=cell&&cell[0]===b&&cell[1]===p;g+=`<div class="c ${on?'on':''}" data-b="${b}" data-p="${p}" style="background:${colG(b,p)};color:${b+p>=5?'#fff':'inherit'}">${n}</div>`}}
+ $('grid').innerHTML=g}
+function refresh(){legend();renderGrid();if(liLayer)liLayer.setStyle(styleLi)}
+function overlay(key,make){const cb=$(key);cb.addEventListener('change',()=>{if(cb.checked){if(!ov[key])ov[key]=make();ov[key].addTo(map)}else if(ov[key])map.removeLayer(ov[key])})}
+(async()=>{LI=await (await fetch('li.json')).json();
+ liLayer=L.geoJSON(LI,{style:styleLi,onEachFeature:(f,l)=>{l.bindTooltip(()=>tip(f.properties),{sticky:true});l.on('click',()=>selectLi(f,l))}}).addTo(map);
+ PTS=await (await fetch('pts.json')).json();refresh();
+ overlay('ov_lanes',()=>L.layerGroup(PTS.lanes.map(a=>L.circleMarker([a[1],a[0]],{radius:4,color:a[2]?'#c0392b':'#d4a017',weight:1,fillOpacity:0.9}).bindTooltip(`${a[4]}${a[6]?' '+a[6]:''} ${a[3]||''} ${a[2]?'紅區':'黃區'}${a[5]?'，寬 '+a[5]+' 公尺':''}`))));
+ overlay('ov_st',()=>L.layerGroup(PTS.stations.map(a=>L.circleMarker([a[1],a[0]],{radius:5,color:'#1f4e79',weight:2,fillColor:'#fff',fillOpacity:1}).bindTooltip(a[2]))));
+ overlay('ov_ma',()=>L.layerGroup(PTS.minarea.map(a=>L.circleMarker([a[1],a[0]],{radius:Math.max(1.5,Math.sqrt(a[2])/3),color:a[4]?'#8b2e1f':'#555',weight:a[4]?1.5:0.5,fillColor:a[4]?'#8b2e1f':'#777',fillOpacity:0.35}).bindTooltip(`65 歲以上 ${a[2]} 人（總人口 ${a[3]}）${a[4]?'，三面都高':a[5]?'，屋與人都高':''}`))));
+ {const col={'海砂屋':'#6a1b9a','耐震未申報':'#0b7285','地震黃單921':'#e67e22','地震黃單331':'#e67e22','地震黃單403':'#e67e22'};
+  overlay('ov_lists',()=>L.layerGroup(PTS.lists.map(a=>L.circleMarker([a[1],a[0]],{radius:4,color:col[a[2]]||'#333',weight:1,fillOpacity:0.8}).bindTooltip(`${a[2]}：${a[3]}${a[4]}（路段巷弄層級的定位，不是門牌）`))))}
+ $('metric').addEventListener('input',refresh);
+ $('grid').addEventListener('click',e=>{const c=e.target.closest('.c');if(!c)return;const b=+c.dataset.b,p=+c.dataset.p;cell=(cell&&cell[0]===b&&cell[1]===p)?null:[b,p];refresh()});
+})();
+</script><div class="yjh-ver">v1.0.1　資料至 2026-10-21　更新 2026-10-22　<a href="https://github.com/yojuhsu/taipei-aging-2026/blob/main/CHANGELOG.md" target="_blank" rel="noopener">更新紀錄</a></div>
+<script>if(new URLSearchParams(location.search).get("embed")==="1")document.documentElement.classList.add("embed")</script>
+</body></html>
